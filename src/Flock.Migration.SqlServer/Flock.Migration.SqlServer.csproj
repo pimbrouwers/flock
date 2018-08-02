@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageId>Flock.Migration.SqlServer</PackageId>
+    <PackageTags>migration;sql-server;migrations</PackageTags>
+    <Title>Flock</Title>
+    <Description>.NET Standard compliant SQL Server Plugin for Flock.Migration</Description>
+    <Authors>Pim Brouwers</Authors>
+    <AssemblyName>Flock.Migration.SqlServer</AssemblyName>
+    <RootNamespace>Flock</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Data.SqlClient" Version="4.5.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Flock.Migration\Flock.Migration.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
@@ -11,7 +10,7 @@ namespace Flock
   /// <summary>
   /// SQL Server IMigration implementation
   /// </summary>
-  public class SqlMigration : IMigration
+  public class SqlServerMigration : IMigration
   {
     private SqlConnection connection;
 
@@ -39,16 +38,18 @@ namespace Flock
           //has script been executed?
           if (!HasMigrated(fileInfo.Name))
           {
-            //execute statements within transaction
-            if (ExecuteStatements(scriptPath))
+            try
             {
-              //on success, insert script record into _migration
-              LogMigration(fileInfo.Name);
+              ExecuteStatements(fileInfo);
               Console.WriteLine("{0} was successfully applied.", fileInfo.Name);
             }
-            else
+            catch (Exception ex)
             {
               Console.WriteLine("{0} could not be applied.", fileInfo.Name);
+              Console.WriteLine("\nERROR:\n{0}\n", ex.Message);
+
+              //output reason for failure and stop processing
+              break;
             }
           }
         }
@@ -99,12 +100,11 @@ namespace Flock
     /// </summary>
     /// <param name="scriptPath"></param>
     /// <returns>True/False if succeeded</returns>
-    public bool ExecuteStatements(string scriptPath)
+    public void ExecuteStatements(FileInfo fileInfo)
     {
-      var success = true;
       var transaction = connection.BeginTransaction();
 
-      foreach (var statement in ParseScript(scriptPath))
+      foreach (var statement in ParseScript(fileInfo.FullName))
       {
         var cmd = new SqlCommand(statement);
         cmd.Connection = connection;
@@ -114,20 +114,15 @@ namespace Flock
         {
           cmd.ExecuteNonQuery();
         }
-        catch (SqlException)
+        catch
         {
           transaction.Rollback();
-          success = false;
-          break;
+          throw;
         }
       }
 
-      if (success)
-      {
-        transaction.Commit();
-      }
-
-      return success;
+      LogMigration(transaction, fileInfo.Name);
+      transaction.Commit();
     }
 
     /// <summary>
@@ -158,10 +153,11 @@ namespace Flock
     /// Inserts record into migration log
     /// </summary>
     /// <param name="scriptName"></param>
-    public void LogMigration(string scriptName)
+    public void LogMigration(SqlTransaction transaction, string scriptName)
     {
       var cmd = new SqlCommand($"insert into {MigrationTable} (Script) values (@scriptName)");
       cmd.Connection = connection;
+      cmd.Transaction = transaction;
 
       cmd.Parameters.AddWithValue("scriptName", scriptName);
 

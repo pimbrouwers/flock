@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageId>Flock.Migration</PackageId>
+    <PackageTags>migration;sql;migrations</PackageTags>
+    <Title>Flock</Title>
+    <Description>.NET Standard compliant SQL Migration Library</Description>
+    <Authors>Pim Brouwers</Authors>
+    <AssemblyName>Flock.Migration</AssemblyName>
+    <RootNamespace>Flock</RootNamespace>
+  </PropertyGroup>
+
+</Project>
