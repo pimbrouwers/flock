@@ -2,8 +2,11 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <PackageId>Flock.Migration.SqlServer</PackageId>
+    <PackageId>Flock.Migration.SqlServer</PackageId>    
     <PackageTags>migration;sql-server;migrations</PackageTags>
+    <PackageVersion>1.0.0</PackageVersion>
+    <PackageIconUrl>http://www.pimbrouwers.com/cinch.png</PackageIconUrl>
+    <PackageProjectUrl>https://github.com/pimbrouwers/flock</PackageProjectUrl>
     <Title>Flock</Title>
     <Description>.NET Standard compliant SQL Server Plugin for Flock.Migration</Description>
     <Authors>Pim Brouwers</Authors>
