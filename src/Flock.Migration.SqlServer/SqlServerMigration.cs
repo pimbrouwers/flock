@@ -52,6 +52,10 @@ namespace Flock
               break;
             }
           }
+          else
+          {
+            Console.WriteLine("{0} has already been applied.", fileInfo.Name);
+          }
         }
       }
     }
