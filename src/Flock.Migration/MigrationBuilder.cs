@@ -66,18 +66,18 @@ namespace Flock
     {
       var sb = new StringBuilder();
       sb.AppendLine();
-      sb.AppendLine(@"  ///,        ////");
-      sb.AppendLine(@"  \  /,      /  >.");
-      sb.AppendLine(@"   \  /,   _/  /.");
-      sb.AppendLine(@"    \_  /_/   /./");
-      sb.AppendLine(@"     \__/_   <");
-      sb.AppendLine(@"     /<<< \_\");
-      sb.AppendLine(@"    /,)^>>_._ \");
-      sb.AppendLine(@"    (/   \\ /\\\");
-      sb.AppendLine(@"         // ````");
-      sb.AppendLine(@" =======((`=======");
-      sb.AppendLine(@" ===== FLOCK =====");
-      sb.AppendLine(@" =================");
+      sb.AppendLine(@" ///,        ////");
+      sb.AppendLine(@" \  /,      /  >.");
+      sb.AppendLine(@"  \  /,   _/  /.");
+      sb.AppendLine(@"   \_  /_/   /./");
+      sb.AppendLine(@"    \__/_   <");
+      sb.AppendLine(@"    /<<< \_\");
+      sb.AppendLine(@"   /,)^>>_._ \");
+      sb.AppendLine(@"   (/   \\ /\\\");
+      sb.AppendLine(@"        // ````");
+      sb.AppendLine(@"=======((`=======");
+      sb.AppendLine(@"===== FLOCK =====");
+      sb.AppendLine(@"=================");
 
       Console.WriteLine(sb.ToString());
     }
