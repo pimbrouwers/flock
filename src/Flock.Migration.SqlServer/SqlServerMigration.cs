@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Flock
@@ -90,6 +91,8 @@ namespace Flock
               Id int identity not null primary key
               ,Script varchar(512)
               ,ExecutionDate datetime default (getutcdate())
+              ,Checksum nvarchar(max)
+              ,Text nvarchar(max)
             );
           end;
       ";
@@ -106,27 +109,39 @@ namespace Flock
     /// <returns>True/False if succeeded</returns>
     public void ExecuteStatements(FileInfo fileInfo)
     {
-      var transaction = connection.BeginTransaction();
+      string scriptText = File.ReadAllText(fileInfo.FullName);
 
-      foreach (var statement in ParseScript(fileInfo.FullName))
+      if (string.IsNullOrWhiteSpace(scriptText))
       {
-        var cmd = new SqlCommand(statement);
-        cmd.Connection = connection;
-        cmd.Transaction = transaction;
-
-        try
-        {
-          cmd.ExecuteNonQuery();
-        }
-        catch
-        {
-          transaction.Rollback();
-          throw;
-        }
+        return;
       }
 
-      LogMigration(transaction, fileInfo.Name);
-      transaction.Commit();
+      IEnumerable<string> statements = ParseScript(scriptText);
+
+      if (statements != null && statements.Any())
+      {
+        var transaction = connection.BeginTransaction();
+
+        foreach (var statement in statements)
+        {
+          var cmd = new SqlCommand(statement);
+          cmd.Connection = connection;
+          cmd.Transaction = transaction;
+
+          try
+          {
+            cmd.ExecuteNonQuery();
+          }
+          catch
+          {
+            transaction.Rollback();
+            throw;
+          }
+        }
+
+        LogMigration(transaction, fileInfo.Name, scriptText);
+        transaction.Commit();
+      }
     }
 
     /// <summary>
@@ -157,15 +172,39 @@ namespace Flock
     /// Inserts record into migration log
     /// </summary>
     /// <param name="scriptName"></param>
-    public void LogMigration(SqlTransaction transaction, string scriptName)
+    public void LogMigration(SqlTransaction transaction, string scriptName, string scriptText)
     {
-      var cmd = new SqlCommand($"insert into {MigrationTable} (Script) values (@scriptName)");
+      var cmd = new SqlCommand($"insert into {MigrationTable} (Script, Checksum, Text) values (@scriptName, @checksum, @scriptText)");
       cmd.Connection = connection;
       cmd.Transaction = transaction;
 
       cmd.Parameters.AddWithValue("scriptName", scriptName);
+      cmd.Parameters.AddWithValue("checksum", ScriptChecksum(scriptText));
+      cmd.Parameters.AddWithValue("scriptText", scriptText);
 
       cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Generate an MD5 Checksum from the script text
+    /// </summary>
+    /// <param name="scriptText"></param>
+    /// <returns></returns>
+    private string ScriptChecksum(string scriptText)
+    {
+      using (var md5 = System.Security.Cryptography.MD5.Create())
+      {
+        byte[] scriptTextBytes = Encoding.ASCII.GetBytes(scriptText);
+        byte[] hashBytes = md5.ComputeHash(scriptTextBytes);
+
+        var sb = new StringBuilder();
+
+        for (int i = 0; i < hashBytes.Length; i++)
+        {
+          sb.Append(hashBytes[i].ToString("X2"));
+        }
+        return sb.ToString();
+      }
     }
 
     /// <summary>
@@ -173,10 +212,10 @@ namespace Flock
     /// </summary>
     /// <param name="scriptPath"></param>
     /// <returns></returns>
-    private IEnumerable<string> ParseScript(string scriptPath)
+    private IEnumerable<string> ParseScript(string scriptText)
     {
       return Regex.Split(
-        File.ReadAllText(scriptPath),
+        scriptText,
         $@"^\s*{StatementSeparator}\s*$",
         RegexOptions.Multiline | RegexOptions.IgnoreCase
       )
