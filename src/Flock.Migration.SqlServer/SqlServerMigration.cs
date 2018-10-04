@@ -73,6 +73,7 @@ namespace Flock
       }
 
       var connection = new SqlConnection(ConnectionString);
+
       connection.Open();
 
       return connection;
@@ -122,21 +123,25 @@ namespace Flock
       {
         var transaction = connection.BeginTransaction();
 
-        foreach (var statement in statements)
+        try
         {
-          var cmd = new SqlCommand(statement);
-          cmd.Connection = connection;
-          cmd.Transaction = transaction;
-
-          try
+          foreach (var statement in statements)
           {
+            Console.WriteLine("\t Executing: {0} ...", statement.TrimStart().Substring(0, statement.Length < 10 ? statement.Length : 10));
+
+            var cmd = new SqlCommand(statement);
+            cmd.CommandTimeout = 60 * 30; //30 minutes
+            cmd.Connection = connection;
+            cmd.Transaction = transaction;
+
+            cmd.ResetCommandTimeout();
             cmd.ExecuteNonQuery();
           }
-          catch
-          {
-            transaction.Rollback();
-            throw;
-          }
+        }
+        catch
+        {
+          transaction.Rollback();
+          throw;
         }
 
         LogMigration(transaction, fileInfo.Name, scriptText);
