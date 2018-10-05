@@ -39,6 +39,7 @@ namespace Flock
           //has script been executed?
           if (!HasMigrated(fileInfo.Name))
           {
+            Console.WriteLine("APPLYING: {0}", fileInfo.Name);
             try
             {
               ExecuteStatements(fileInfo);
@@ -127,7 +128,8 @@ namespace Flock
         {
           foreach (var statement in statements)
           {
-            Console.WriteLine("\t Executing: {0} ...", statement.TrimStart().Substring(0, statement.Length < 10 ? statement.Length : 10));
+            int len = 32;
+            Console.WriteLine("\t EXECUTING: {0} ...", statement.TrimStart().Substring(0, statement.Length < len ? statement.Length : len));
 
             var cmd = new SqlCommand(statement);
             cmd.CommandTimeout = 60 * 30; //30 minutes
@@ -158,7 +160,7 @@ namespace Flock
     {
       bool hasMigrated = false;
 
-      var cmd = new SqlCommand($"select count(*) from {MigrationTable} where Script = @scriptName");
+      var cmd = new SqlCommand($"select count(Id) from {MigrationTable} where Script = @scriptName");
       cmd.Connection = connection;
 
       cmd.Parameters.AddWithValue("scriptName", scriptName);
