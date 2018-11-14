@@ -2,6 +2,16 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageId>Flock.Migration</PackageId>
+    <Authors>Pim Brouwers</Authors>
+    <Description>.NET Standard compliant SQL Migration Library</Description>
+    <Copyright>2018</Copyright>
+    <PackageLicenseUrl>https://github.com/pimbrouwers/flock/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/pimbrouwers/flock</PackageProjectUrl>
+    <PackageIconUrl>http://www.pimbrouwers.com/cinch.png</PackageIconUrl>
+    <RepositoryUrl>https://github.com/pimbrouwers/flock</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>sql-migration migrations</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
