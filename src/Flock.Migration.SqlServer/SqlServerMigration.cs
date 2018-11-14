@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Flock
@@ -11,7 +11,7 @@ namespace Flock
   /// <summary>
   /// SQL Server IMigration implementation
   /// </summary>
-  public class SqlMigration : IMigration
+  public class SqlServerMigration : IMigration
   {
     private SqlConnection connection;
 
@@ -39,17 +39,24 @@ namespace Flock
           //has script been executed?
           if (!HasMigrated(fileInfo.Name))
           {
-            //execute statements within transaction
-            if (ExecuteStatements(scriptPath))
+            Console.WriteLine("APPLYING: {0}", fileInfo.Name);
+            try
             {
-              //on success, insert script record into _migration
-              LogMigration(fileInfo.Name);
+              ExecuteStatements(fileInfo);
               Console.WriteLine("{0} was successfully applied.", fileInfo.Name);
             }
-            else
+            catch (Exception ex)
             {
               Console.WriteLine("{0} could not be applied.", fileInfo.Name);
+              Console.WriteLine("\nERROR:\n{0}\n", ex.Message);
+
+              //output reason for failure and stop processing
+              break;
             }
+          }
+          else
+          {
+            Console.WriteLine("{0} has already been applied.", fileInfo.Name);
           }
         }
       }
@@ -67,6 +74,7 @@ namespace Flock
       }
 
       var connection = new SqlConnection(ConnectionString);
+
       connection.Open();
 
       return connection;
@@ -85,6 +93,8 @@ namespace Flock
               Id int identity not null primary key
               ,Script varchar(512)
               ,ExecutionDate datetime default (getutcdate())
+              ,Checksum nvarchar(max)
+              ,Text nvarchar(max)
             );
           end;
       ";
@@ -99,35 +109,46 @@ namespace Flock
     /// </summary>
     /// <param name="scriptPath"></param>
     /// <returns>True/False if succeeded</returns>
-    public bool ExecuteStatements(string scriptPath)
+    public void ExecuteStatements(FileInfo fileInfo)
     {
-      var success = true;
-      var transaction = connection.BeginTransaction();
+      string scriptText = File.ReadAllText(fileInfo.FullName);
 
-      foreach (var statement in ParseScript(scriptPath))
+      if (string.IsNullOrWhiteSpace(scriptText))
       {
-        var cmd = new SqlCommand(statement);
-        cmd.Connection = connection;
-        cmd.Transaction = transaction;
+        return;
+      }
+
+      IEnumerable<string> statements = ParseScript(scriptText);
+
+      if (statements != null && statements.Any())
+      {
+        var transaction = connection.BeginTransaction();
 
         try
         {
-          cmd.ExecuteNonQuery();
+          foreach (var statement in statements)
+          {
+            int len = 32;
+            Console.WriteLine("\t EXECUTING: {0} ...", statement.TrimStart().Substring(0, statement.Length < len ? statement.Length : len));
+
+            var cmd = new SqlCommand(statement);
+            cmd.CommandTimeout = 60 * 30; //30 minutes
+            cmd.Connection = connection;
+            cmd.Transaction = transaction;
+
+            cmd.ResetCommandTimeout();
+            cmd.ExecuteNonQuery();
+          }
         }
-        catch (SqlException)
+        catch
         {
           transaction.Rollback();
-          success = false;
-          break;
+          throw;
         }
-      }
 
-      if (success)
-      {
+        LogMigration(transaction, fileInfo.Name, scriptText);
         transaction.Commit();
       }
-
-      return success;
     }
 
     /// <summary>
@@ -139,7 +160,7 @@ namespace Flock
     {
       bool hasMigrated = false;
 
-      var cmd = new SqlCommand($"select count(*) from {MigrationTable} where Script = @scriptName");
+      var cmd = new SqlCommand($"select count(Id) from {MigrationTable} where Script = @scriptName");
       cmd.Connection = connection;
 
       cmd.Parameters.AddWithValue("scriptName", scriptName);
@@ -158,14 +179,39 @@ namespace Flock
     /// Inserts record into migration log
     /// </summary>
     /// <param name="scriptName"></param>
-    public void LogMigration(string scriptName)
+    public void LogMigration(SqlTransaction transaction, string scriptName, string scriptText)
     {
-      var cmd = new SqlCommand($"insert into {MigrationTable} (Script) values (@scriptName)");
+      var cmd = new SqlCommand($"insert into {MigrationTable} (Script, Checksum, Text) values (@scriptName, @checksum, @scriptText)");
       cmd.Connection = connection;
+      cmd.Transaction = transaction;
 
       cmd.Parameters.AddWithValue("scriptName", scriptName);
+      cmd.Parameters.AddWithValue("checksum", ScriptChecksum(scriptText));
+      cmd.Parameters.AddWithValue("scriptText", scriptText);
 
       cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Generate an MD5 Checksum from the script text
+    /// </summary>
+    /// <param name="scriptText"></param>
+    /// <returns></returns>
+    private string ScriptChecksum(string scriptText)
+    {
+      using (var md5 = System.Security.Cryptography.MD5.Create())
+      {
+        byte[] scriptTextBytes = Encoding.ASCII.GetBytes(scriptText);
+        byte[] hashBytes = md5.ComputeHash(scriptTextBytes);
+
+        var sb = new StringBuilder();
+
+        for (int i = 0; i < hashBytes.Length; i++)
+        {
+          sb.Append(hashBytes[i].ToString("X2"));
+        }
+        return sb.ToString();
+      }
     }
 
     /// <summary>
@@ -173,10 +219,10 @@ namespace Flock
     /// </summary>
     /// <param name="scriptPath"></param>
     /// <returns></returns>
-    private IEnumerable<string> ParseScript(string scriptPath)
+    private IEnumerable<string> ParseScript(string scriptText)
     {
       return Regex.Split(
-        File.ReadAllText(scriptPath),
+        scriptText,
         $@"^\s*{StatementSeparator}\s*$",
         RegexOptions.Multiline | RegexOptions.IgnoreCase
       )
